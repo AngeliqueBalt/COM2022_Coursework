@@ -2,6 +2,7 @@ package UDP_Chat;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Server implements Runnable {
@@ -29,7 +30,7 @@ public class Server implements Runnable {
 
         while (!socket.isClosed()) {
             try {
-                Arrays.fill(buffer, (byte) 0);
+                // Arrays.fill(buffer, (byte) 0);
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
@@ -53,14 +54,16 @@ public class Server implements Runnable {
                 }
 
                 System.out.println(id + ": " + message);
-                byte[] data = (id + ": " + message).getBytes();
+//                byte[] data = (id + ": " + message).getBytes(StandardCharsets.UTF_8);
 
                 // Loop through the client addresses and create a new packet with the data
                 for (int i = 0; i < clientAddresses.size(); i++) {
                     InetAddress cl_address = clientAddresses.get(i);
                     int cl_port = clientPorts.get(i);
-                    packet = new DatagramPacket(data, data.length, cl_address, cl_port);
-                    socket.send(packet);
+
+                    PacketWriter.sendMessage(socket, cl_address, cl_port, id + ": " + message);
+//                    packet = new DatagramPacket(data, data.length, cl_address, cl_port);
+//                    socket.send(packet);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

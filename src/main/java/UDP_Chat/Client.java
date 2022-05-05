@@ -5,6 +5,8 @@ import java.io.DataOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.zip.CRC32;
 
 class MessageSender implements Runnable {
@@ -19,48 +21,13 @@ class MessageSender implements Runnable {
         window = win;
     }
 
-    private void sendMessage (String s) throws Exception {
-
-        var sb = s.getBytes();
-        int packetCount = (int) Math.ceil(sb.length/1008F);
-        InetAddress address = InetAddress.getByName(hostName);
-
-        for (int i = 0; i < packetCount; i++) {
-
-            var byteOutput = new ByteArrayOutputStream();
-            var output = new DataOutputStream(byteOutput);
-
-            // Make the packet
-            var payload = new byte[1008];
-            var packetLength = payload.length;
-            if (sb.length % 1008 != 0 && i == packetCount - 1) packetLength = sb.length % 1008;
-
-            System.arraycopy(sb, i*1008, payload, 0, packetLength);
-
-            var checksum = new CRC32();
-            checksum.update(payload);
-
-            output.writeInt((int) checksum.getValue());
-            output.writeInt(i);
-            output.writeInt(packetCount);
-            output.write(payload);
-
-            output.flush();
-            var buffer = byteOutput.toByteArray();
-
-            var packet = new DatagramPacket(buffer, buffer.length, address, PORT);
-            socket.send(packet);
-        }
-
-    }
-
     public void run() {
         boolean connected = false;
 
         // Check to see if the client is connected or not
         do {
             try {
-                sendMessage("New client connected");
+                PacketWriter.sendMessage(socket, hostName, PORT, "New client connected");
                 connected = true;
             } catch (Exception e) {
                 window.displayMessage(e.getMessage());
@@ -73,7 +40,7 @@ class MessageSender implements Runnable {
                 while (!window.messageReady) {
                     Thread.sleep(100);
                 }
-                sendMessage(window.getMessage());
+                PacketWriter.sendMessage(socket, hostName, PORT, window.getMessage());
                 window.setMessageReady(false);
             } catch (Exception e) {
                 window.displayMessage(e.getMessage());
@@ -84,7 +51,7 @@ class MessageSender implements Runnable {
 
 class MessageReceiver implements Runnable {
     DatagramSocket socket;
-    byte buffer[];
+    byte[] buffer;
     ClientWindow window;
 
     MessageReceiver (DatagramSocket sock, ClientWindow win) {
@@ -94,15 +61,18 @@ class MessageReceiver implements Runnable {
     }
 
     public void run () {
-        //noinspection InfiniteLoopStatement
-        while (true) {
+        while (!socket.isClosed()) {
             try {
                 // Create a DatagramPacket
+                Arrays.fill(buffer, (byte) 0);
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
                 // Create new string to be sent when packet received by server
-                String received = new String(packet.getData());
+//                String received = new String(packet.getData());
+                String received = PacketReader.handlePacket(packet);
+                if (received == null) continue;
+
                 System.out.println(received);
                 window.displayMessage(received);
             } catch (Exception e) {

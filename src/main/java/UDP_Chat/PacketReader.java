@@ -48,7 +48,7 @@ public class PacketReader {
             partialPackets.put(id, new byte[total][]);
         }
 
-        partialPackets.get(id)[current] = packet.getData();
+        partialPackets.get(id)[current] = payload;
 
         if (hasEntirePacket(id)) {
             try (var allPackets = new ByteArrayOutputStream()) {
@@ -59,8 +59,9 @@ public class PacketReader {
                         ex.printStackTrace();
                     }
                 });
+
                 partialPackets.remove(id);
-                return allPackets.toString(StandardCharsets.UTF_8).split("\u0000")[0];
+                return allPackets.toString(StandardCharsets.UTF_8).split("\0")[0];
             }
         }
         return null;
