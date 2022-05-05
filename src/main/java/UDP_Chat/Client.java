@@ -22,7 +22,7 @@ class MessageSender implements Runnable {
     private void sendMessage (String s) throws Exception {
 
         var sb = s.getBytes();
-        int packetCount = (int) Math.ceil(sb.length/8F);
+        int packetCount = (int) Math.ceil(sb.length/1008F);
         InetAddress address = InetAddress.getByName(hostName);
 
         for (int i = 0; i < packetCount; i++) {
@@ -31,11 +31,11 @@ class MessageSender implements Runnable {
             var output = new DataOutputStream(byteOutput);
 
             // Make the packet
-            var payload = new byte[8];
+            var payload = new byte[1008];
             var packetLength = payload.length;
-            if (sb.length % 8 != 0 && i == packetCount - 1) packetLength = sb.length % 8;
+            if (sb.length % 1008 != 0 && i == packetCount - 1) packetLength = sb.length % 1008;
 
-            System.arraycopy(sb, i*8, payload, 0, packetLength);
+            System.arraycopy(sb, i*1008, payload, 0, packetLength);
 
             var checksum = new CRC32();
             checksum.update(payload);
@@ -67,8 +67,7 @@ class MessageSender implements Runnable {
             }
         } while (!connected);
 
-        //noinspection InfiniteLoopStatement
-        while (true) {
+        while (!socket.isClosed()) {
             // While the client is connected send messages else throw exception
             try {
                 while (!window.messageReady) {

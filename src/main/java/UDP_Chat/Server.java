@@ -27,17 +27,18 @@ public class Server implements Runnable {
     public void run() {
         byte[] buffer = new byte[BUFFER];
 
-        //noinspection InfiniteLoopStatement
-        while (true) {
+        while (!socket.isClosed()) {
             try {
                 Arrays.fill(buffer, (byte) 0);
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(packet);
 
                 // Read the input stream from the sender.
-                var inputStream = new DataInputStream(new ByteArrayInputStream(packet.getData()));
+                var message = PacketReader.handlePacket(packet);
 
-                String message = new String(buffer, 0, buffer.length);
+                if (message == null) {
+                    continue;
+                }
 
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
@@ -51,8 +52,8 @@ public class Server implements Runnable {
                     clientAddresses.add(clientAddress);
                 }
 
-                System.out.println(id + " : " + message);
-                byte[] data = (id + " : " + message).getBytes();
+                System.out.println(id + ": " + message);
+                byte[] data = (id + ": " + message).getBytes();
 
                 // Loop through the client addresses and create a new packet with the data
                 for (int i = 0; i < clientAddresses.size(); i++) {
