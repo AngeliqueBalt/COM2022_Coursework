@@ -6,20 +6,21 @@ import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.concurrent.atomic.AtomicReference;
 
 //@SuppressWarnings("serial")
 public class ClientWindow extends JFrame {
-    String hostName;
+//    String hostName;
     JTextPane messageField;
     JTextPane roomField;
 
     String message = "";
     boolean messageReady = false;
 
-    public ClientWindow() {
-
-        JDialog hostNameDialog = new JDialog(this, "Enter server address: ", true);
-        JTextField hostField = new JTextField("                            ");
+    public static String requestHostName() {
+        JFrame hostNameOwner = new JFrame();
+        JDialog hostNameDialog = new JDialog(hostNameOwner, "Enter server address: ", true);
+        JTextField hostField = new JTextField("127.0.0.1");
         JButton ok = new JButton("OK");
 
         hostNameDialog.setLayout(new FlowLayout());
@@ -31,13 +32,18 @@ public class ClientWindow extends JFrame {
         hostNameDialog.setSize(250, 65);
         hostNameDialog.setResizable(false);
 
+        AtomicReference<String> hostName = new AtomicReference<>();
+
         ok.addActionListener(e -> {
-            hostName = hostField.getText().trim();
+            hostName.set(hostField.getText().trim());
             hostNameDialog.dispose();
         });
 
         hostNameDialog.setVisible(true);
+        return hostName.get();
+    }
 
+    public ClientWindow() {
         setSize(800, 600);
         setTitle("Chat room");
         setLocationRelativeTo(null);
@@ -100,7 +106,7 @@ public class ClientWindow extends JFrame {
         return message;
     }
 
-    public String getHostName() {
-        return hostName;
-    }
+//    public String getHostName() {
+//        return hostName;
+//    }
 }

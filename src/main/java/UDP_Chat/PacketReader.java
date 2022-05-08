@@ -2,26 +2,41 @@ package UDP_Chat;
 
 import java.io.*;
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.CRC32;
 
+interface SignalHandler {
+    void handleSignal(ConnectedClient client, String signal);
+}
+
 public class PacketReader {
 
-    private static final Map<String, byte[][]> partialPackets = new HashMap<>();
+    private static final Map<Integer, byte[][]> partialPackets = new HashMap<>();
 
-    public static String handlePacket(DatagramPacket packet) throws IOException {
+    public static String handlePacket(DatagramPacket packet, DatagramSocket socket, SignalHandler handler) throws IOException {
 
         // Read the input stream from the sender.
         InetAddress clientAddress = packet.getAddress();
         int clientPort = packet.getPort();
 
-        String id = clientAddress.toString() + "|" + clientPort;
+        String sender = clientAddress.toString() + "|" + clientPort;
+
+        if (packet.getLength() == 3) {
+            var message = new String(packet.getData(), 0, 3, StandardCharsets.UTF_8);
+
+            System.out.println("Received " + message);
+            var client = new ConnectedClient(packet.getAddress(), packet.getPort());
+            handler.handleSignal(client, message);
+            return null;
+        }
 
         var byteInput = new ByteArrayInputStream(packet.getData());
         var input = new DataInputStream(byteInput);
 
+        var id = input.readInt();
         var checksum = input.readInt();
         var current = input.readInt();
         var total = input.readInt();
@@ -36,9 +51,15 @@ public class PacketReader {
         crc32.update(payload);
         int expectedChecksum = (int) crc32.getValue();
 
+
+        System.out.println("Sender = " + sender);
+        System.out.println("ID = " + id);
+        System.out.println("expectedChecksum = " + expectedChecksum);
+        System.out.println("checksum = " + checksum);
+        System.out.println("current packet = " + current);
+        System.out.println("total packets = " + total);
+
         if (checksum != expectedChecksum) {
-            System.out.println("expectedChecksum = " + expectedChecksum);
-            System.out.println("checksum = " + checksum);
 //            throw new RuntimeException("Checksum does not match");
             System.err.println("Checksum does not match");
             return null;
@@ -48,9 +69,15 @@ public class PacketReader {
             partialPackets.put(id, new byte[total][]);
         }
 
+        var ack = new byte[]{'A','C','K'};
+        socket.send(new DatagramPacket(ack, ack.length, clientAddress, clientPort));
+        System.out.println("Sending ACK");
+
         partialPackets.get(id)[current] = payload;
 
         if (hasEntirePacket(id)) {
+            System.out.println("Entire packet received");
+
             try (var allPackets = new ByteArrayOutputStream()) {
                 Arrays.stream(partialPackets.get(id)).forEachOrdered(partialPacket -> {
                     try {
@@ -61,6 +88,7 @@ public class PacketReader {
                 });
 
                 partialPackets.remove(id);
+
                 return allPackets.toString(StandardCharsets.UTF_8).split("\0")[0];
             }
         }
@@ -69,16 +97,12 @@ public class PacketReader {
 
     /**
      * Check whether an entire packet has been received based on its id.
-     * <p>
-     * This method looks up the value of the specified id in partialPackets
-     * and checks that list to ensure there are no null values (which would
-     * suggest that the entire packet has been received).
      *
      * @param id The id to lookup.
      * @return True, if the entire packet corresponding to the id has been
      * received, otherwise false.
      */
-    private static boolean hasEntirePacket(String id) {
+    private static boolean hasEntirePacket(Integer id) {
         // Look up the array of packet parts in the list of all partial packets.
         var packetParts = partialPackets.get(id);
 

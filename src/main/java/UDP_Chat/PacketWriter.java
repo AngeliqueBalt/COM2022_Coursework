@@ -6,6 +6,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.zip.CRC32;
 
 public class PacketWriter {
@@ -18,6 +19,7 @@ public class PacketWriter {
 
         var sb = s.getBytes(StandardCharsets.UTF_8);
         int packetCount = (int) Math.ceil(sb.length/1008F);
+        int id = ThreadLocalRandom.current().nextInt();
 
         for (int i = 0; i < packetCount; i++) {
 
@@ -34,6 +36,7 @@ public class PacketWriter {
             var checksum = new CRC32();
             checksum.update(payload);
 
+            output.writeInt(id);
             output.writeInt((int) checksum.getValue());
             output.writeInt(i);
             output.writeInt(packetCount);
